@@ -18,11 +18,17 @@ struct MatrixReference {
     float4x4 matrix;
 };
 
+struct MatrixReferenceReference {
+    MatrixReference* reference;
+};
+
 struct PushConsts {
     // Pointer to the buffer with the scene's MVP matrix
-    ConstBufferPointer<MatrixReference> sceneDataReference;
+    //ConstBufferPointer<MatrixReference> sceneDataReference;
+    MatrixReferenceReference* sceneDataReference;
     // Pointer to the buffer for the data for each model
-    ConstBufferPointer<MatrixReference> modelDataReference;
+    //ConstBufferPointer<MatrixReference> modelDataReference;
+    MatrixReference* modelDataReference;
 };
 
 struct VSOutput
@@ -36,8 +42,8 @@ struct VSOutput
 [shader("vertex")]
 VSOutput vertexMain(VSInput input, uniform PushConsts pushConstants) 
 {
-    MatrixReference sceneData = pushConstants.sceneDataReference.get();
-    MatrixReference modelData = pushConstants.modelDataReference.get();
+    MatrixReference sceneData = *pushConstants.sceneDataReference->reference;
+    MatrixReference modelData = *pushConstants.modelDataReference;
 
     VSOutput output;
     output.Normal = input.Normal;

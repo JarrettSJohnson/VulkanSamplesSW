@@ -33,6 +33,8 @@ public:
 		glm::mat4 mvp;
 		vks::Buffer buffer;
 		VkDeviceAddress bufferDeviceAddress{};
+		vks::Buffer bufferThatHoldsBDA;
+		VkDeviceAddress bufferDeviceAddressThatHoldsAnotherDeviceAddress{};
 	} scene;
 
 	VkPipeline pipeline{ VK_NULL_HANDLE };
@@ -176,11 +178,17 @@ public:
 		VK_CHECK_RESULT(vulkanDevice->createBuffer(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &scene.buffer, sizeof(glm::mat4)));
 		VK_CHECK_RESULT(scene.buffer.map());
 
+		VK_CHECK_RESULT(vulkanDevice->createBuffer(VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &scene.bufferThatHoldsBDA, sizeof(VkDeviceAddress)));
+		VK_CHECK_RESULT(scene.bufferThatHoldsBDA.map());
+
 		// Get the device of this buffer that is later on passed to the shader (aka "reference")
 		VkBufferDeviceAddressInfo bufferDeviceAdressInfo{};
 		bufferDeviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		bufferDeviceAdressInfo.buffer = scene.buffer.buffer;
 		scene.bufferDeviceAddress = vkGetBufferDeviceAddressKHR(device, &bufferDeviceAdressInfo);
+
+		bufferDeviceAdressInfo.buffer = scene.bufferThatHoldsBDA.buffer;
+		scene.bufferDeviceAddressThatHoldsAnotherDeviceAddress = vkGetBufferDeviceAddressKHR(device, &bufferDeviceAdressInfo);
 
 		for (auto& cube : cubes) {
 			// Note that we don't use this buffer for uniforms but rather pass it's address as a reference to the shader, so isntead of the uniform buffer usage we use a different flag
@@ -198,6 +206,8 @@ public:
 	{
 		scene.mvp = camera.matrices.perspective * camera.matrices.view;
 		memcpy(scene.buffer.mapped, &scene, sizeof(glm::mat4));
+
+		memcpy(scene.bufferThatHoldsBDA.mapped, &scene.bufferDeviceAddress, sizeof(VkDeviceAddress));
 
 		cubes[0].modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, 0.0f));
 		cubes[1].modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(1.5f, 0.5f, 0.0f));
@@ -266,7 +276,7 @@ public:
 			// The shader then simply reads data from the address of that reference
 			PushConstantBlock references{};
 			// Pass pointer to the global matrix via a buffer device address
-			references.sceneReference = scene.bufferDeviceAddress;
+			references.sceneReference = scene.bufferDeviceAddressThatHoldsAnotherDeviceAddress;
 
 			for (auto& cube : cubes) {
 				// Pass pointer to this cube's data buffer via a buffer device address
